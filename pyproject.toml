@@ -1,0 +1,32 @@
+[project]
+name = "libris-api"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Your Name",email = "you@example.com"}
+]
+readme = "README.md"
+requires-python = ">=3.12,<4.0"
+dependencies = [
+    "fastapi[standard] (>=0.118.2,<0.119.0)"
+]
+
+[tool.poetry]
+packages = [{include = "libris_api", from = "src"}]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.taskipy.tasks]
+run = 'fastapi dev src/libris_api/app.py'
+lint = 'ruff check'
+pre_format = 'ruff check --fix'
+format = 'ruff format'
+pre_test = 'task lint'
+test = 'pytest -s -x --cov=fast_zero -vv'
+post_test = 'coverage html'
+[dependency-groups]
+dev = [
+    "taskipy (>=1.14.1,<2.0.0)"
+]
