@@ -3,6 +3,16 @@ from fastapi import status
 
 @pytest.mark.asyncio
 async def test_create_user(async_client):
-    response = await async_client.post("/users/")
+
+    payload = {
+        "name": "testuser",
+        "email": "user@mail.com",
+        "password": "strongpassword"
+    }
+    response = await async_client.post(
+        "/users/",
+        json=payload
+    )
     assert response.status_code == status.HTTP_201_CREATED
-    assert response.json() == {"message": "User created"}
+    data = response.json()
+    assert data['name'] == payload['name']
