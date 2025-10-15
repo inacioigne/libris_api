@@ -1,5 +1,6 @@
 from src.db.database import Base
-from sqlalchemy import Column, Integer, String, DateTime, func
+from sqlalchemy import Column, Integer, String, DateTime, func, ForeignKey, JSON
+from sqlalchemy.orm import relationship
 
 class User(Base):
     __tablename__ = "users"
@@ -9,3 +10,4 @@ class User(Base):
     email = Column(String(100), unique=True, index=True, nullable=False)
     password = Column(String(128), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
+

@@ -1,10 +1,8 @@
-from datetime import datetime
-from fastapi import APIRouter, status, Depends
+from fastapi import APIRouter, status, Depends, HTTPException
 from src.db.database import get_session
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
 from src.schemas.users import UserCreate, UserRead
-from src.models.users import User
+from src.lib import users
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -14,22 +12,11 @@ router = APIRouter(prefix="/users", tags=["users"])
         response_model=UserRead
         )
 async def create_user(user_in: UserCreate, db: AsyncSession = Depends(get_session)):
-    user_in.created_at = user_in.created_at or datetime.now()
-    user = User(**user_in.model_dump())
-    db.add(user)
-    try:
-        await db.commit()
-    except IntegrityError:
-        await db.rollback()
-        raise
 
-    await db.refresh(user)
+    existing_user = await users.get_by_email(user_in.email, db)
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    user = await users.create(user_in, db)
 
     return user
-    
-
-    # user = user_in.model_dump()
-    # user['id'] = 1  # Placeholder for actual DB-generated ID
-    
-
-    # return user
