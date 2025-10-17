@@ -17,7 +17,6 @@ SessionLocal = sessionmaker(
 
 Base = declarative_base()
 
-# Dependency to get DB session
 async def get_session():
     async with SessionLocal() as session:
         yield session
