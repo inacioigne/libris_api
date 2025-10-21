@@ -5,9 +5,8 @@ from datetime import datetime
 class ActionLogCreate(BaseModel):
     user_id: int
     action: str
-    details: Dict
+    details: Optional[Dict] = None
     timestamp: datetime
-    details: str
 
 class ActionLogRead(BaseModel):
     id: int
@@ -15,7 +14,6 @@ class ActionLogRead(BaseModel):
     action: str
     details: Dict
     timestamp: datetime
-    details: str
 
     class Config:
         orm_mode = True
