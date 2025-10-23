@@ -1,16 +1,19 @@
-from typing import Optional
+from typing import Annotated, Optional
 from pwdlib import PasswordHash
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
-from jose import jwt, JWTError
+from datetime import datetime, timedelta, timezone
+import jwt
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from http import HTTPStatus
+from jwt.exceptions import ExpiredSignatureError, InvalidSignatureError, DecodeError
 
 from src.db.database import get_session
 from src.models.users import User
+
+
 
 SECRET_KEY = 'your-secret-key' 
 ALGORITHM = 'HS256'
@@ -21,7 +24,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta]=None):
     to_encode = data.copy()
-    expire = datetime.now() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -31,14 +34,31 @@ def get_password_hash(password: str):
 def verify_password(plain_password: str, hashed_password: str):
     return pwd_context.verify(plain_password, hashed_password)
 
-def get_current_user(
-    session: Session = Depends(get_session),
-    token: str = Depends(oauth2_scheme),
+class UserFAKE(BaseModel):
+    username: str
+    email: str | None = None
+    full_name: str | None = None
+    disabled: bool | None = None
+    
+def fake_decode_token(token):
+    return UserFAKE(
+        username=token + "fakedecoded", email="john@example.com", full_name="John Doe"
+    )
+
+async def get_current_user(
+        token: Annotated[str, Depends(oauth2_scheme)],
+        session: Session = Depends(get_session)
 ):
-    print("USERNAME:", token)
-    credentials_exception = HTTPException(
+    
+    credentials_email = HTTPException(
         status_code=HTTPStatus.UNAUTHORIZED,
-        detail='Could not validate credentials',
+        detail='Email não encontrado',
+        headers={'WWW-Authenticate': 'Bearer'},
+    )
+    
+    credentials_user = HTTPException(
+        status_code=HTTPStatus.UNAUTHORIZED,
+        detail='Usuário não encontrado',
         headers={'WWW-Authenticate': 'Bearer'},
     )
 
@@ -47,16 +67,21 @@ def get_current_user(
         subject_email = payload.get('sub')
 
         if not subject_email:
-            raise credentials_exception
+            raise credentials_email
 
-    except JWTError:
-        raise credentials_exception
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expirado")
+    except InvalidSignatureError:
+        raise HTTPException(status_code=401, detail="Assinatura inválida")
+    except DecodeError:
+        raise HTTPException(status_code=401, detail="Token malformado")
 
-    user = session.scalar(
+
+    user = await session.scalar(
         select(User).where(User.email == subject_email)
     )
 
     if not user:
-        raise credentials_exception
+        raise credentials_user
 
     return user
